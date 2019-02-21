@@ -20,7 +20,7 @@ function grid_countries($controller){
         ),
         'name' => array(
             'title'    => LANG_TITLE,
-            'href'     => href_to($controller->root_url, 'regions', array('{id}')),
+            'href'     => href_to($controller->root_url, 'childs_grid/countries', array('{id}')),
             'filter'   => 'like',
             'editable' => array(
                 'table' => 'geo_countries'
@@ -44,7 +44,7 @@ function grid_countries($controller){
         array(
             'title' => LANG_EDIT,
             'class' => 'edit',
-            'href'  => href_to($controller->root_url, 'country', array('{id}'))
+            'href'  => href_to($controller->root_url, 'countries_edit', array('{id}'))
         ),
         array(
             'title'   => LANG_DELETE,

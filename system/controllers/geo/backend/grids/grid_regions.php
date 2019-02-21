@@ -20,7 +20,7 @@ function grid_regions($controller){
         ),
         'name' => array(
             'title'  => LANG_TITLE,
-            'href'   => href_to($controller->root_url, 'cities', array('{id}', '{country_id}')),
+            'href'   => href_to($controller->root_url, 'childs_grid/regions', array('{id}')),
             'filter' => 'like',
             'editable' => array(
                 'table' => 'geo_regions'

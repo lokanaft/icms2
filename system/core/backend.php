@@ -47,11 +47,14 @@ class cmsBackend extends cmsController {
 
     }
 
-    public function setH1($title) {
+    public function setH1($title, $change = true) {
 
         if (is_array($title)){ $title = implode(' -> ', $title); }
-
-        $this->h1 = ' -> '.$title;
+        if($change){
+            $this->h1 = ' -> '.$title;
+        }elseif($title){
+            $this->h1 .= ' -> '.$title;
+        }
 
     }
 
@@ -70,12 +73,479 @@ class cmsBackend extends cmsController {
         return array();
     }
 
+    public function route($uri){
+
+        $uri = explode('/', $uri);
+        $uri_action = str_replace(['.', '\\'], '', array_shift($uri));
+
+        $action_name = '';
+
+        if(strpos($uri_action, '_') !== false){
+            $parts = explode('_', $uri_action);
+            $data_name = '';
+            while($parts){
+                $data_name .= ($data_name ? '_' : '').array_shift($parts);
+                if(is_readable($this->root_path.'data/'.$data_name.'.php')){
+                    break;
+                }
+            }
+            $action_name = implode('_', $parts);
+        }else{
+            $data_name = $uri_action;
+        }
+        if(!$action_name){
+            $action_name = 'grid';
+        }
+
+        switch($action_name){
+            case 'grid':
+                return $this->actionGrid($data_name);
+            case 'childs_grid':
+                return $this->actionChildsGrid($data_name, isset($uri[0]) ? $uri[0] : 0);
+            case 'add':
+                return $this->actionAdd($data_name, isset($uri[0]) ? $uri[0] : 0, isset($uri[1]) ? $uri[1] : 0, isset($uri[2]) ? $uri[2] : 0, isset($uri[3]) ? $uri[3] : 0);
+            case 'edit':
+                return $this->actionEdit($data_name, isset($uri[0]) ? $uri[0] : 0); // $uri[0] проверится внутри actionEdit
+            default: return cmsCore::error404(); // если нет подходящего data, то сработает именно это
+        }
+
+    }
+
+    protected function getData($data_name){
+        if(!is_readable($this->root_path.'data/'.$data_name.'.php')){
+            return false;
+        }
+        include_once $this->root_path.'data/'.$data_name.'.php';
+        $function_name = 'cms_data_'.$data_name;
+        if( !function_exists($function_name)
+                ||
+            !($data = call_user_func_array($function_name, array($this)))
+        ){
+            return false;
+        }
+        if(!isset($data['items_name'])){
+            $data['items_name'] = $data_name;
+        }
+        if(!isset($data['item_title'])){
+            $name = 'LANG_'.strtoupper($this->name).'_'.strtoupper($data['item_name']);
+            $data['item_title'] = defined($name) ? constant($name) : '';
+        }
+        if(!isset($data['items_title'])){
+            $name = 'LANG_'.strtoupper($this->name).'_'.strtoupper($data['items_name']);
+            $data['items_title'] = defined($name) ? constant($name) : '';
+        }
+        if(!isset($data['table_name'])){
+            $data['table_name'] = $this->name.'_'.$data_name;
+        }
+        if(!isset($data['labels']['create'])){
+            $name = 'LANG_'.strtoupper($this->name).'_'.strtoupper($data['item_name']).'_LABELS_CREATE';
+            $data['labels']['create'] = defined($name) ? constant($name) : '';
+        }
+        if(!isset($data['title_field'])){
+            $data['title_field'] = 'title';
+        }
+        if(!isset($data['gender'])){
+            $data['gender'] = 'M';
+        }
+        if(empty($data['parents'])){
+            $data['parents'] = [];
+        }
+        if(empty($data['childs'])){
+            $data['childs'] = [];
+        }
+
+        return $data;
+    }
+
+    protected function prepareDataList($parent, $list){ // он нужен чтобы в getData() не делать этого лишний раз
+        $new = array();
+        foreach($parent[$list]?:[] as $item){
+            if(!is_array($item)){ // значит здесь просто название набора
+                $item_data = $this->getData($item);
+                if(!$item_data){
+                    $item = array(
+                        'items_name'=> $item,
+                        'parent_id_field'  => $item.'_id', // это поле в этой ($parent) таблице с ид родителя $item
+                        'table_name'=> $this->name.'_'.$item,
+                        'title_field'=> '',
+                        'child_id_field' => $parent['item_name'].'_id', // это поле в таблицах потомков с ид $parent
+                        'grid_name' => $item
+                    );
+                }else{
+                    $item = array(
+//                        'items_name'=> $item_data['items_name'],
+                        'parent_id_field'  => $item_data['item_name'].'_id',
+//                        'table_name'=> $item_data['table_name'],
+//                        'title_field'=> $item_data['title_field'],
+                        'child_id_field'=> $parent['item_name'].'_id',
+                        'grid_name' => $item_data['items_name'],
+//                        'data' => $item_data
+                    );
+                    $item = array_merge($item_data, $item);
+                }
+            }else{
+                $item_data = $this->getData($item['items_name']);
+                if($item_data){
+                    $item = array_merge($item_data, $item);
+                }
+            }
+            $new[$item['items_name']] = $item;
+        }
+        return $new;
+    }
+
+    protected function getDataParents($data, $parent_item = []){ // возвращает цепочку родителей
+        $ret = array();
+
+        while(!empty($data['parents'])){
+            $parents = $this->prepareDataList($data, 'parents');
+            $parent = current($parents);
+            if($parent_item){
+                $parent_id = !empty($parent_item[$parent['parent_id_field']]) ? $parent_item[$parent['parent_id_field']] : 0;
+                if($parent_id){
+                    $parent_item = $this->model->getItemById($parent['table_name'], $parent_id);
+                    if($parent_item){
+                        $parent['item'] = $parent_item;
+                    }
+                }
+            }
+            $ret[] = $parent;
+            $data = $parent;
+        }
+
+        return $ret;
+    }
+
+    protected function getDataCrumbs($data, $item = []){
+        $back_url = '';
+        $crumbs = $titles = $parents = array();
+
+        if(!empty($item[$data['title_field']])){
+            $crumbs[] = ['title' => $item[$data['title_field']], 'link' => ''];
+            $titles[] = $item[$data['title_field']];
+        }
+
+        if(!empty($data['parents'])){
+            $parents = $this->getDataParents($data, $item);
+            foreach($parents as $parent){
+                if(!empty($parent['item'])){
+                    $url = $this->cms_template->href_to($parent['items_name'].'_childs_grid/'.$parent['item']['id']);
+                    $crumbs[] = ['title' => $parent['item'][$parent['title_field']], 'link' => $url];
+                    $titles[] = $parent['item'][$parent['title_field']];
+                    if(!$back_url){
+                        $back_url = $parent['items_name'].'_childs_grid/'.$parent['item']['id'];
+                    }
+                }else{
+                    $url = $this->cms_template->href_to($parent['items_name'].'_childs_grid');
+                    $crumbs[] = ['title' => $parent['items_title'], 'link' => $url];
+                    $titles[] = $parent['items_title'];
+                    if(!$back_url){
+                        $back_url = $parent['items_name'].'_childs_grid';
+                    }
+                }
+            }
+            $crumbs = array_reverse($crumbs);
+        }else
+        if(!$item){ // для обычных гридов
+            $crumbs[] = ['title' => $data['items_title'], 'link' => $this->cms_template->href_to($data['items_name'])];
+            $titles[] = $data['items_title'];
+        }
+
+        return array($crumbs, $titles, $back_url, $parents);
+    }
+
+    protected function setH1Data($titles, $cut_last = false){
+        if($cut_last){
+            array_shift($titles);
+        }
+        if($titles){
+            $titles = array_reverse($titles);
+            $this->setH1($titles, false);
+        }
+    }
+
+    protected function getDataItem($data, $item_id){
+        return !empty($data['methods']['item']) ?
+            $this->model->{$data['methods']['item']}($item_id) :
+            $this->model->getItemById($data['table_name'], $item_id);
+    }
+
+    protected function addDataItem($data, $item){
+        return !empty($data['methods']['add']) ?
+            $this->model->{$data['methods']['add']}($item) :
+            $this->model->insert($data['table_name'], $item);
+    }
+
+    protected function updateDataItem($data, $item_id, $item){
+        return !empty($data['methods']['update']) ?
+            $this->model->{$data['methods']['update']}($item_id, $item) :
+            $this->model->update($data['table_name'], $item_id, $item);
+    }
+
+    protected function getDataItems($data){
+        return !empty($data['methods']['items']) ?
+            $this->model->{$data['methods']['items']}() :
+            $this->model->get($data['table_name']);
+    }
+
 //============================================================================//
 //============================================================================//
 //=========              ШАБЛОНЫ ОСНОВНЫХ ДЕЙСТВИЙ                   =========//
 //============================================================================//
 //============================================================================//
 
+    public function actionGrid($data_name){
+        if( !($data = $this->getData($data_name))
+                ||
+            !($grid = $this->loadDataGrid($data_name, false, 'admin.grid_'.$this->name.'.'.$data_name))
+        ){
+            return cmsCore::error404();
+        }
+
+        if($this->request->isAjax()){
+            if(!empty($grid['options']['is_pagination'])){$this->model->setPerPage(admin::perpage);}
+            if(!empty($grid['options']['is_sortable']) || !empty($grid['options']['is_filter']) || !empty($grid['options']['is_pagination'])){
+                $filter_str = cmsUser::getUPSActual('admin.grid_'.$this->name.'.'.$data_name, $this->request->get('filter', ''));
+//                var_dump('admin.grid_'.$this->name.'.'.$data['items_name'], $filter_str);die;
+                if($filter_str){
+                    $filter = array();
+                    parse_str($filter_str, $filter);
+                    if(empty($grid['options']['is_pagination'])){unset($filter['page']);}
+                    $this->model->applyGridFilter($grid, $filter);
+                }
+            }
+            $total = $this->model->getCount($data['table_name']);
+            if(!empty($grid['options']['is_pagination'])){
+                $perpage = isset($filter['perpage']) ? $filter['perpage'] : admin::perpage;
+                $pages = ceil($total / $perpage);
+            }else{
+                $pages = 1;
+            }
+            $items = $this->getDataItems($data);
+
+            cmsTemplate::getInstance()->renderGridRowsJSON($grid, $items, $total, $pages);
+            return $this->halt();
+        }
+
+        list($crumbs, $titles) = $this->getDataCrumbs($data);
+
+//        if(empty($data['form']['no_h1']) && $titles){
+//            $this->setH1Data($titles);
+//        }
+
+        $to_template = array(
+            'grid' => $grid,
+            'data' => $data,
+            'crumbs' => $crumbs,
+            'titles' => $titles
+                );
+
+        return $this->cms_template->getTemplateFileName('controllers/'.$this->name.'/backend/'.$data_name, true) ?
+                $this->cms_template->render('backend/'.$data_name, $to_template) :
+                $this->cms_template->renderAsset('ui/data_grid', $to_template);
+    }
+
+    public function actionChildsGrid($data_name, $item_id, $child_name = ''){
+        if( !($item_id = intval($item_id))
+                ||
+            !($data = $this->getData($data_name))
+                ||
+            empty($data['childs'])
+                ||
+            !($item = $this->getDataItem($data, $item_id))
+        ){
+            return cmsCore::error404();
+        }
+
+        $data['childs'] = $this->prepareDataList($data, 'childs');
+
+        if(!$child_name){ // если не указан явно, то первый по списку
+            $current = current($data['childs']);
+            if(empty($current['items_name'])){return cmsCore::error404();}
+            $child_name = $current['items_name'];
+        }
+        if(
+            empty($data['childs'][$child_name])
+                ||
+            !($grid = $this->loadDataGrid($data['childs'][$child_name]['grid_name'], false, 'admin.grid_'.$this->name.'.'.$data['childs'][$child_name]['grid_name']))
+        ){
+            return cmsCore::error404();
+        }
+        $child = $data['childs'][$child_name];
+//        $child_data = !empty($child['data']) ? $child['data'] : array();
+
+        if($this->request->isAjax()){
+            if(!empty($grid['options']['is_pagination'])){$this->model->setPerPage(admin::perpage);}
+            if(!empty($grid['options']['is_sortable']) || !empty($grid['options']['is_filter']) || !empty($grid['options']['is_pagination'])){
+                $filter_str = cmsUser::getUPSActual('admin.grid_'.$this->name.'.'.$data_name, $this->request->get('filter', ''));
+//                var_dump('admin.grid_'.$this->name.'.'.$data['items_name'], $filter_str);die;
+                if($filter_str){
+                    $filter = array();
+                    parse_str($filter_str, $filter);
+                    if(empty($grid['options']['is_pagination'])){unset($filter['page']);}
+                    $this->model->applyGridFilter($grid, $filter);
+                }
+            }
+            $this->model->filterEqual($child['child_id_field'], $item_id);
+//            var_dump($child['parent_id_field'], $item_id);die;
+            $total = $this->model->getCount($child['table_name']);
+            if(!empty($grid['options']['is_pagination'])){
+                $perpage = isset($filter['perpage']) ? $filter['perpage'] : admin::perpage;
+                $pages = ceil($total / $perpage);
+            }else{
+                $pages = 1;
+            }
+            $items = $this->getDataItems($child);
+
+            cmsTemplate::getInstance()->renderGridRowsJSON($grid, $items, $total, $pages);
+            return $this->halt();
+        }
+
+        list($crumbs, $titles) = $this->getDataCrumbs($data, $item);
+
+        if(empty($data['form']['no_h1']) && $titles){
+            $this->setH1Data($titles);
+        }
+
+        $to_template = array(
+            'grid' => $grid,
+            'data' => $child,
+            'parent_data' => $data,
+            'crumbs' => $crumbs,
+            'parent' => $data,
+            'item_id' => $item_id,
+            'titles' => $titles
+        );
+        return $this->cms_template->getTemplateFileName('controllers/'.$this->name.'/backend/'.$data_name, true) ?
+                $this->cms_template->render('backend/'.$data_name, $to_template) :
+                $this->cms_template->renderAsset('ui/data_grid', $to_template);
+    }
+
+    public function actionAdd($data_name, $item_id = 0, $extra0 = null, $extra1 = null, $extra2 = null){
+        if( !($data = $this->getData($data_name))
+                ||
+            !($form = $this->getForm($data['item_name'], array('add')))
+        ){
+            return cmsCore::error404();
+        }
+
+        $extra = [$extra0, $extra1, $extra2];
+//        var_dump($extra);die;
+
+        if($this->request->has('submit')){
+            $item = $form->parse($this->request, true);
+            $errors = $form->validate($this, $item);
+            if(!$errors){
+                $item_id = $this->addDataItem($data, $item);
+                if($item_id){
+                    cmsUser::addSessionMessage(sprintf(LANG_CP_COMPLETE_SUCCESS, $data['item_title'], $item[$data['title_field']], constant('LANG_CP_SUCCESS_ADDED_'.$data['gender'])), 'success');
+                    // для редиректа
+                    $item = $this->getDataItem($data, $item_id);
+                    list($crumbs, $titles, $back_url) = $this->getDataCrumbs($data, $item);
+                }
+
+                return $this->redirectToAction(!empty($back_url) ? $back_url : $data_name);
+            }else{
+                cmsUser::addSessionMessage(LANG_FORM_ERRORS, 'error');
+            }
+        }else{
+            $errors = array();
+            $item_id = (int)$item_id;
+            $item = $item_id ? $this->getDataItem($data, $item_id) : array();
+            if(!$item){
+                if($data['parents']){
+                    $parents = $this->prepareDataList($data, 'parents');
+                    $i = 0;
+                    foreach($parents as $parent){
+                        $item[$parent['parent_id_field']] = $extra[$i++];
+                        if($i === 3){break;}
+                    }
+                }
+                $item_id = 0;
+            }
+        }
+        list($crumbs, $titles, $back_url, $parents) = $this->getDataCrumbs($data, $item);
+
+        if(!$item_id){
+            foreach($parents as $parent){
+                if(!empty($parent['item']['id']) && isset($item[$parent['parent_id_field']])){
+                    $item[$parent['parent_id_field']] = $parent['item']['id'];
+                }
+            }
+        }
+
+        if(empty($data['form']['no_h1']) && $titles){
+            $this->setH1Data($titles, (bool)$item_id);
+        }
+
+        $to_template = array(
+            'do' => 'add',
+            'item' => $item,
+            'form' => $form,
+            'errors' => $errors,
+            'data' => $data,
+            'crumbs' => $crumbs,
+            'titles' => $titles,
+            'item_id' => $item_id,
+            'back_url' => $back_url
+        );
+        return $this->cms_template->getTemplateFileName('controllers/'.$this->name.'/backend/'.$data['item_name'], true) ?
+                $this->cms_template->render('backend/'.$data['item_name'], $to_template) :
+                $this->cms_template->renderAsset('ui/data_form', $to_template);
+
+    }
+
+    public function actionEdit($data_name, $item_id){
+        if( !($item_id = intval($item_id))
+                ||
+            !($data = $this->getData($data_name))
+                ||
+            !($form = $this->getForm($data['item_name'], array('edit')))
+        ){
+            return cmsCore::error404();
+        }
+
+        if($this->request->has('submit')){
+            $item = $form->parse($this->request, true);
+            $errors = $form->validate($this, $item);
+            if(!$errors){
+                if($this->updateDataItem($data, $item_id, $item)){
+                    cmsUser::addSessionMessage(sprintf(LANG_CP_COMPLETE_SUCCESS, $data['item_title'], $item[$data['title_field']], constant('LANG_CP_SUCCESS_UPDATED_'.$data['gender'])), 'success');
+                }
+                // для редиректа
+                $item = $this->getDataItem($data, $item_id);
+                list($crumbs, $titles, $back_url) = $this->getDataCrumbs($data, $item);
+
+                return $this->redirectToAction($back_url);
+            }else{
+                cmsUser::addSessionMessage(LANG_FORM_ERRORS, 'error');
+            }
+        }else{
+            $errors = array();
+            $item = $this->getDataItem($data, $item_id);
+        }
+
+        list($crumbs, $titles, $back_url) = $this->getDataCrumbs($data, $item);
+
+        if(empty($data['form']['no_h1']) && $titles){
+            $this->setH1Data($titles, true);
+        }
+
+        $to_template = array(
+            'do' => 'edit',
+            'item' => $item,
+            'form' => $form,
+            'errors' => $errors,
+            'data' => $data,
+            'crumbs' => $crumbs,
+            'titles' => $titles,
+            'back_url' => $back_url
+        );
+        return $this->cms_template->getTemplateFileName('controllers/'.$this->name.'/backend/'.$data['item_name'], true) ?
+                $this->cms_template->render('backend/'.$data['item_name'], $to_template) :
+                $this->cms_template->renderAsset('ui/data_form', $to_template);
+
+    }
 //============================================================================//
 //=========                Скрытие/показ записей                     =========//
 //============================================================================//

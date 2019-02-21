@@ -38,6 +38,7 @@ class formGeoCountry extends cmsForm {
                     )),
 					new fieldString('ordering', array(
                         'title' => LANG_GEO_POSITION,
+                        'default' => cmsCore::getModel('geo')->getNextOrdering('geo_countries'),
                         'rules' => array(array('number'),array('required'))
                     ))
 				)

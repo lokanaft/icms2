@@ -1,6 +1,17 @@
 <?php
 
     define('LANG_GEO_CONTROLLER', 'География');
+
+    define('LANG_GEO_COUNTRY', 'Страна');
+    define('LANG_GEO_COUNTRIES', 'Страны');
+    define('LANG_GEO_COUNTRY_LABELS_CREATE', 'страну');
+    define('LANG_GEO_REGION', 'Регион');
+    define('LANG_GEO_REGIONS', 'Регионы');
+    define('LANG_GEO_REGION_LABELS_CREATE', 'регион');
+    define('LANG_GEO_CITY', 'Город');
+    define('LANG_GEO_CITIES', 'Города');
+    define('LANG_GEO_CITY_LABELS_CREATE', 'город');
+
     define('LANG_GEO_SELECT_COUNTRY', '-- Выберите страну --');
     define('LANG_GEO_SELECT_REGION', '-- Выберите регион --');
     define('LANG_GEO_SELECT_CITY', '-- Выберите город --');

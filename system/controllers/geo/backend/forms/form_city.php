@@ -2,16 +2,12 @@
 
 class formGeoCity extends cmsForm {
 
-    public function init($country_id){
+    public function init($do){
 
         $model = cmsCore::getModel('geo');
 
-        $regions   = array();
         $countries = $model->getCountries();
-
-        if($country_id){
-            $regions = $model->getRegions($country_id);
-        }
+        $first = key($countries);
 
         return array(
             array(
@@ -31,7 +27,10 @@ class formGeoCity extends cmsForm {
                             'list' => 'country_id',
                             'url'  => href_to('admin/controllers/edit/geo', 'get_regions_ajax')
                         ),
-                        'items'  => $regions
+                        'generator' => function($city) use($model, $first){
+                            $regions = $model->getRegions(!empty($city['country_id']) ? $city['country_id'] : $first)?:[];
+                            return $regions;
+                        }
                     )),
 
                     new fieldString('name', array(

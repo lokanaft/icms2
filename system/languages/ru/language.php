@@ -431,6 +431,7 @@
     define('LANG_MENU_MORE',                 'Ещё');
     define('LANG_VIEW', 					 'Просмотр');
     define('LANG_COPY', 					 'Копировать');
+    define('LANG_CLONE', 					 'Клонировать');
     define('LANG_EDIT', 					 'Редактировать');
     define('LANG_EDIT_SELECTED',			 'Редактировать выделенные');
     define('LANG_SHOW', 					 'Показать');

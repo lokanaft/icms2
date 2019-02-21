@@ -713,3 +713,14 @@
     define('LANG_CP_FIELD_READING',       'Чтение');
     define('LANG_CP_FIELD_EDITING',       'Изменение');
     define('LANG_WD_CONTENT_FILTER_DETECT', 'Определять автоматически');
+
+    define('LANG_CP_COMPLETE_SUCCESS',  '%s &laquo;%s&raquo; успешно %s');
+    define('LANG_CP_SUCCESS_ADDED_M',   'добавлен');
+    define('LANG_CP_SUCCESS_ADDED_F',   'добавлена');
+    define('LANG_CP_SUCCESS_ADDED_N',   'добавлено');
+    define('LANG_CP_SUCCESS_UPDATED_M', 'обновлён');
+    define('LANG_CP_SUCCESS_UPDATED_F', 'обновлена');
+    define('LANG_CP_SUCCESS_UPDATED_N', 'обновлено');
+    define('LANG_CP_SUCCESS_DELETED_M', 'удалён');
+    define('LANG_CP_SUCCESS_DELETED_F', 'удалена');
+    define('LANG_CP_SUCCESS_DELETED_N', 'удалено');

@@ -20,7 +20,7 @@ function grid_cities($controller){
         ),
         'name' => array(
             'title'  => LANG_TITLE,
-            'href'   => href_to($controller->root_url, 'city', array('{id}')),
+            'href'   => href_to($controller->root_url, 'edit/cities', array('{id}')),
             'filter' => 'like',
             'editable' => array(
                 'table' => 'geo_cities'
@@ -36,7 +36,7 @@ function grid_cities($controller){
         array(
             'title' => LANG_EDIT,
             'class' => 'edit',
-            'href'  => href_to($controller->root_url, 'city', array('{id}'))
+            'href'  => href_to($controller->root_url, 'edit/cities', array('{id}'))
         ),
         array(
             'title'   => LANG_DELETE,

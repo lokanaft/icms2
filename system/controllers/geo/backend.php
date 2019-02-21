@@ -5,6 +5,10 @@ class backendGeo extends cmsBackend {
 
     public $useDefaultOptionsAction = true;
 
+    public function routeAction($action_name){
+        return ($action_name === 'index') ? 'countries' : $action_name;
+    }
+
     public function getBackendMenu(){
         return array(
             array(
