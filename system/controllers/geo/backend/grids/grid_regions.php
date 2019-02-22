@@ -36,7 +36,7 @@ function grid_regions($controller){
         array(
             'title' => LANG_EDIT,
             'class' => 'edit',
-            'href'  => href_to($controller->root_url, 'region', array('{country_id}', '{id}'))
+            'href'  => href_to($controller->root_url, 'regions_edit', array('{id}'))
         ),
         array(
             'title'   => LANG_DELETE,
