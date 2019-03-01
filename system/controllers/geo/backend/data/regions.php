@@ -1,6 +1,6 @@
 <?php
 
-function cms_data_regions($controller){
+function cms_data_geo_regions($controller){
 
     return array(
         'item_name' => 'region',

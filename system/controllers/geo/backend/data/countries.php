@@ -1,6 +1,6 @@
 <?php
 
-function cms_data_countries($controller){
+function cms_data_geo_countries($controller){
 
     return array(
         'item_name' => 'country',

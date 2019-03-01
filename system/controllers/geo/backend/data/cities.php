@@ -1,6 +1,6 @@
 <?php
 
-function cms_data_cities($controller){
+function cms_data_geo_cities($controller){
 
     return array(
         'item_name' => 'city',

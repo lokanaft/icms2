@@ -116,7 +116,7 @@ class cmsBackend extends cmsController {
             return false;
         }
         include_once $this->root_path.'data/'.$data_name.'.php';
-        $function_name = 'cms_data_'.$data_name;
+        $function_name = 'cms_data_'.$this->name.'_'.$data_name;
         if( !function_exists($function_name)
                 ||
             !($data = call_user_func_array($function_name, array($this)))
